@@ -1179,7 +1179,7 @@ AI Chatbot Dashboard
 /* ===================================== */
 
 const PORT =
-  process.env.PORT || 3000;
+  process.env.PORT || 8080;
 
 app.listen(
 
