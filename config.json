@@ -1,0 +1,34 @@
+{
+  "businessName": "Virtual Assistant",
+
+  "primaryColor": "#2563eb",
+
+  "secondaryColor": "#4f46e5",
+
+  "welcomeMessage":
+    "👋 Hi! I'm your virtual assistant. How can I help today?",
+
+  "calendlyUrl": "",
+
+  "enableCalendly": false,
+
+  "enableHubspot": true,
+
+  "enableTwilio": true,
+
+  "enableGoogleSheets": true,
+
+  "enableAnalytics": true,
+
+  "googleReviewLink": "",
+
+  "enableReviewRequests": false,
+
+  "enableNewsletter": true,
+
+  "newsletterProvider": "googleSheets",
+
+  "stripePaymentLink": "",
+
+  "enablePayments": false
+}
