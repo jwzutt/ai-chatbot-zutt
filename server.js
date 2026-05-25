@@ -10,7 +10,19 @@ import * as cheerio from "cheerio";
 import mammoth from "mammoth";
 import twilio from "twilio";
 
+import { fileURLToPath } from "url";
+
 dotenv.config();
+
+/* ===================================== */
+/* PATH SETUP */
+/* ===================================== */
+
+const __filename =
+  fileURLToPath(import.meta.url);
+
+const __dirname =
+  path.dirname(__filename);
 
 /* ===================================== */
 /* CONFIG */
@@ -19,29 +31,57 @@ dotenv.config();
 const config = JSON.parse(
 
   fs.readFileSync(
-    "config.json",
+
+    path.join(
+      __dirname,
+      "config.json"
+    ),
+
     "utf8"
+
   )
 
 );
 
+/* ===================================== */
+/* EXPRESS */
+/* ===================================== */
+
 const app = express();
 
 app.use(cors());
+
 app.use(express.json());
 
+app.use(
+
+  express.static(
+
+    path.join(
+      __dirname,
+      "public"
+    )
+
+  )
+
+);
+
 /* ===================================== */
-/* ALLOW IFRAME EMBEDDING */
+/* ROOT */
 /* ===================================== */
 
-app.use((req, res, next) => {
+app.get("/", (req, res) => {
 
-  res.setHeader(
-    "X-Frame-Options",
-    "ALLOWALL"
+  res.sendFile(
+
+    path.join(
+      __dirname,
+      "public",
+      "index.html"
+    )
+
   );
 
-  next();
 });
 
 /* ===================================== */
@@ -87,13 +127,26 @@ const twilioClient =
 /* ===================================== */
 
 const uploadsDir =
-  path.join(process.cwd(), "uploads");
+  path.join(
+    __dirname,
+    "uploads"
+  );
 
 const knowledgeDir =
-  path.join(process.cwd(), "knowledge");
+  path.join(
+    __dirname,
+    "knowledge"
+  );
 
 const analyticsPath =
-  path.join(process.cwd(), "analytics.json");
+  path.join(
+    __dirname,
+    "analytics.json"
+  );
+
+/* ===================================== */
+/* ENSURE DIRECTORIES */
+/* ===================================== */
 
 if (!fs.existsSync(uploadsDir)) {
 
@@ -114,14 +167,6 @@ const upload = multer({
   dest: uploadsDir
 
 });
-
-/* ===================================== */
-/* STATIC */
-/* ===================================== */
-
-app.use(
-  express.static("public")
-);
 
 /* ===================================== */
 /* ANALYTICS */
@@ -218,7 +263,7 @@ function trackNewsletterSubscriber() {
 }
 
 /* ===================================== */
-/* LOAD KNOWLEDGE */
+/* KNOWLEDGE BASE */
 /* ===================================== */
 
 function loadKnowledgeBase() {
@@ -240,34 +285,35 @@ function loadKnowledgeBase() {
           file
         );
 
-      const content =
-        fs.readFileSync(
-          filePath,
-          "utf8"
-        );
+      try {
 
-      knowledge +=
-        "\n\n" + content;
+        const content =
+          fs.readFileSync(
+            filePath,
+            "utf8"
+          );
+
+        knowledge +=
+          "\n\n" + content;
+
+      } catch (error) {
+
+        console.log(
+          `Skipped ${file}`
+        );
+      }
+
     });
 
     return knowledge
       .replace(/\s+/g, " ")
       .slice(0, 15000);
 
-  } catch (error) {
-
-    console.error(
-      "Knowledge Error:",
-      error.message
-    );
+  } catch {
 
     return "";
   }
 }
-
-/* ===================================== */
-/* FIND RELEVANT KNOWLEDGE */
-/* ===================================== */
 
 function findRelevantKnowledge(
   knowledge,
@@ -291,6 +337,7 @@ function findRelevantKnowledge(
       return words.some(word =>
         lower.includes(word)
       );
+
     });
 
   return relevant
@@ -312,10 +359,6 @@ async function createHubspotLead(data) {
 
   ) {
 
-    console.log(
-      "HubSpot not configured"
-    );
-
     return;
   }
 
@@ -326,6 +369,7 @@ async function createHubspotLead(data) {
       "https://api.hubapi.com/crm/v3/objects/contacts",
 
       {
+
         properties: {
 
           firstname:
@@ -338,18 +382,14 @@ async function createHubspotLead(data) {
             data.email || "",
 
           phone:
-            data.phone || "",
-
-          company:
-            data.company || "",
-
-          website:
-            data.website || ""
+            data.phone || ""
 
         }
+
       },
 
       {
+
         headers: {
 
           Authorization:
@@ -357,23 +397,19 @@ async function createHubspotLead(data) {
 
           "Content-Type":
             "application/json"
-        }
-      }
-    );
 
-    console.log(
-      "HubSpot lead created"
+        }
+
+      }
+
     );
 
   } catch (error) {
 
     console.error(
-
       "HubSpot Error:",
-
       error.response?.data ||
       error.message
-
     );
   }
 }
@@ -391,10 +427,6 @@ async function sendSMS(message) {
     !twilioEnabled
 
   ) {
-
-    console.log(
-      "Twilio not configured"
-    );
 
     return;
   }
@@ -414,10 +446,6 @@ async function sendSMS(message) {
           process.env.BUSINESS_PHONE_NUMBER
 
       });
-
-    console.log(
-      "SMS sent"
-    );
 
   } catch (error) {
 
@@ -442,10 +470,6 @@ async function logToGoogleSheets(data) {
 
   ) {
 
-    console.log(
-      "Google Sheets not configured"
-    );
-
     return;
   }
 
@@ -459,18 +483,11 @@ async function logToGoogleSheets(data) {
 
     );
 
-    console.log(
-      "Logged to Google Sheets"
-    );
-
   } catch (error) {
 
     console.error(
-
       "Google Sheets Error:",
-
       error.message
-
     );
   }
 }
@@ -485,10 +502,6 @@ async function subscribeNewsletter(
 
   const provider =
     config.newsletterProvider;
-
-  /* ========================= */
-  /* GOOGLE SHEETS */
-  /* ========================= */
 
   if (
     provider === "googleSheets"
@@ -506,263 +519,228 @@ async function subscribeNewsletter(
 
     });
 
-    console.log(
-
-      "Newsletter subscriber saved to Google Sheets"
-
-    );
-
     return;
   }
-
-  /* ========================= */
-  /* MAILCHIMP */
-  /* ========================= */
 
   if (
     provider === "mailchimp"
   ) {
 
     console.log(
-      "Mailchimp integration not setup yet"
+      "Mailchimp not setup yet"
     );
 
     return;
   }
-
-  /* ========================= */
-  /* HUBSPOT */
-  /* ========================= */
 
   if (
     provider === "hubspot"
   ) {
 
     console.log(
-      "HubSpot newsletter integration not setup yet"
+      "HubSpot newsletter not setup yet"
     );
 
     return;
   }
-
-  console.log(
-    "Unknown newsletter provider"
-  );
 }
+
+/* ===================================== */
+/* CONFIG ROUTE */
+/* ===================================== */
+
+app.get("/config", (req, res) => {
+
+  res.json({
+
+    businessName:
+      config.businessName,
+
+    primaryColor:
+      config.primaryColor,
+
+    secondaryColor:
+      config.secondaryColor,
+
+    welcomeMessage:
+      config.welcomeMessage,
+
+    calendlyUrl:
+      config.calendlyUrl,
+
+    enableCalendly:
+      config.enableCalendly,
+
+    googleReviewLink:
+      config.googleReviewLink,
+
+    enableReviewRequests:
+      config.enableReviewRequests,
+
+    enableNewsletter:
+      config.enableNewsletter,
+
+    newsletterProvider:
+      config.newsletterProvider,
+
+    stripePaymentLink:
+      config.stripePaymentLink,
+
+    enablePayments:
+      config.enablePayments
+
+  });
+
+});
 
 /* ===================================== */
 /* CHAT */
 /* ===================================== */
 
-app.post(
-  "/chat",
-  async (req, res) => {
+app.post("/chat", async (req, res) => {
 
-    try {
+  try {
 
-      const messages =
-        req.body.messages || [];
+    const messages =
+      req.body.messages || [];
 
-      const knowledge =
-        loadKnowledgeBase();
+    const latestMessage =
+      messages[
+        messages.length - 1
+      ]?.content || "";
 
-      const latestMessage =
-        messages[
-          messages.length - 1
-        ]?.content || "";
+    trackConversation(
+      latestMessage
+    );
 
-      trackConversation(
+    const knowledge =
+      loadKnowledgeBase();
+
+    const relevantKnowledge =
+      findRelevantKnowledge(
+        knowledge,
         latestMessage
       );
 
-      const relevantKnowledge =
-        findRelevantKnowledge(
-          knowledge,
-          latestMessage
-        );
+    const completion =
+      await openai.chat.completions.create({
 
-      const completion =
-        await openai.chat.completions.create({
+        model:
+          "gpt-4.1-mini",
 
-          model: "gpt-4.1-mini",
+        messages: [
 
-          messages: [
+          {
 
-            {
-              role: "system",
+            role: "system",
 
-              content: `
+            content: `
 
 You are a conversational virtual assistant for the business.
 
-Your job is to help website visitors naturally, professionally, and conversationally.
+Be conversational, concise, and helpful.
 
-You should sound like a real modern customer support and sales assistant.
-
-IMPORTANT RULES:
-
-- Be conversational and natural
-- Keep responses concise
+Rules:
+- Keep responses short and natural
 - Avoid giant blocks of text
 - Avoid excessive bullet points
-- Avoid sounding robotic
-- Avoid repeating yourself
-- NEVER tell users to "use the website form"
-- Collect information naturally inside the chat
-- Ask only ONE question at a time
-- Sound proactive and helpful
-- Keep responses human-like and modern
-- Focus on helping users quickly
-- Be friendly and confident
-- Keep most responses between 1-4 sentences
+- Ask only one question at a time
+- Help users directly inside the chat
+- Never tell users to use website forms
+- Sound human and modern
 
-LEAD CAPTURE RULES:
-
-If users mention:
-- needing help
+If users need:
+- help
 - estimates
-- repairs
+- services
 - appointments
 - consultations
-- quotes
-- services
 - pricing
-- bookings
 
 begin conversational lead capture naturally.
 
-Gather:
-- name
-- phone
-- email
-- service needed
-- issue details
-
-BUT:
-- only ask ONE question at a time
-- do not interrogate users
-- keep it conversational
-
-Example:
-
-User:
-"I need plumbing help"
-
-Assistant:
-"Absolutely — what issue are you experiencing?"
-
-Then continue naturally.
-
-NEWSLETTER RULES:
-
-If users mention:
+If users ask about:
 - newsletters
 - updates
 - promotions
-- announcements
-- deals
-- offers
 
-offer to sign them up for updates.
-
-PAYMENT RULES:
+offer to sign them up.
 
 If users ask about:
+- payments
 - deposits
 - invoices
-- payments
-- booking fees
-- consultation fees
 
-you can offer payment assistance.
-
-BOOKING RULES:
-
-If users mention:
-- scheduling
-- appointments
-- consultations
-- booking
-
-you can help them book an appointment.
-
-STYLE RULES:
-
-- Avoid overexplaining
-- Avoid long lists unless requested
-- Avoid markdown formatting unless necessary
-- Prioritize conversational UX over perfect formatting
-- Sound intelligent but approachable
-- Never say you are "just an AI"
-- Never refuse basic business assistance
-- Guide users naturally toward solutions
+offer payment assistance.
 
 Business Knowledge:
 
 ${relevantKnowledge}
 
 `
-            },
 
-            ...messages
+          },
 
-          ]
+          ...messages
 
-        });
-
-      const reply =
-        completion
-          .choices[0]
-          .message
-          .content;
-
-      res.json({
-        reply
-      });
-
-    } catch (error) {
-
-      console.error(error);
-
-      res.status(500).json({
-
-        error:
-          "Chatbot error"
+        ]
 
       });
-    }
+
+    const reply =
+      completion
+        .choices[0]
+        .message
+        .content;
+
+    res.json({
+
+      reply
+
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+
+      reply:
+        "Something went wrong."
+
+    });
+
   }
-);
+
+});
 
 /* ===================================== */
-/* LEAD */
+/* LEADS */
 /* ===================================== */
 
-app.post(
-  "/lead",
-  async (req, res) => {
+app.post("/lead", async (req, res) => {
 
-    try {
+  try {
 
-      const {
+    const {
 
-        name,
-        email,
-        phone,
-        message
+      name,
+      email,
+      phone,
+      message
 
-      } = req.body;
+    } = req.body;
 
-      await createHubspotLead({
+    await createHubspotLead({
 
-        name,
-        email,
-        phone,
-        message
+      name,
+      email,
+      phone,
+      message
 
-      });
+    });
 
-      await sendSMS(`
+    await sendSMS(`
 
 New Website Lead
 
@@ -780,93 +758,158 @@ ${message}
 
 `);
 
-      await logToGoogleSheets({
+    await logToGoogleSheets({
 
-        name,
-        email,
-        phone,
-        message
+      name,
+      email,
+      phone,
+      message
 
-      });
+    });
 
-      trackLead();
+    trackLead();
 
-      res.json({
+    res.json({
 
-        success: true
+      success: true
 
-      });
+    });
 
-    } catch (error) {
+  } catch (error) {
 
-      console.error(error);
+    console.error(error);
 
-      res.status(500).json({
+    res.status(500).json({
 
-        error:
-          "Lead capture failed"
+      error:
+        "Lead capture failed"
 
-      });
-    }
+    });
+
   }
-);
+
+});
 
 /* ===================================== */
 /* NEWSLETTER */
 /* ===================================== */
 
-app.post(
-  "/newsletter",
-  async (req, res) => {
+app.post("/newsletter", async (req, res) => {
 
-    try {
+  try {
 
-      const { email } =
-        req.body;
+    const { email } =
+      req.body;
 
-      if (!email) {
+    if (!email) {
 
-        return res.status(400)
-          .json({
+      return res.status(400)
+        .json({
 
-            error:
-              "Email required"
+          error:
+            "Email required"
 
-          });
-      }
+        });
+    }
 
-      trackNewsletterSubscriber();
+    trackNewsletterSubscriber();
 
-      await subscribeNewsletter(
-        email
+    await subscribeNewsletter(
+      email
+    );
+
+    res.json({
+
+      success: true
+
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+
+      error:
+        "Newsletter signup failed"
+
+    });
+
+  }
+
+});
+
+/* ===================================== */
+/* WEBSITE TRAINING */
+/* ===================================== */
+
+app.post("/train-website", async (req, res) => {
+
+  try {
+
+    const { url } =
+      req.body;
+
+    const response =
+      await axios.get(url);
+
+    const $ =
+      cheerio.load(
+        response.data
       );
 
-      res.json({
+    $("script").remove();
+    $("style").remove();
 
-        success: true
+    const text =
+      $("body")
+        .text()
+        .replace(/\s+/g, " ")
+        .trim();
 
-      });
+    const filePath =
+      path.join(
 
-    } catch (error) {
+        knowledgeDir,
 
-      console.error(error);
+        `website-${Date.now()}.txt`
 
-      res.status(500).json({
+      );
 
-        error:
-          "Newsletter signup failed"
+    fs.writeFileSync(
+      filePath,
+      text
+    );
 
-      });
-    }
+    res.json({
+
+      success: true
+
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+
+      error:
+        "Website training failed"
+
+    });
+
   }
-);
+
+});
 
 /* ===================================== */
-/* UPLOAD */
+/* FILE UPLOAD */
 /* ===================================== */
 
 app.post(
+
   "/upload",
+
   upload.single("file"),
 
   async (req, res) => {
@@ -913,7 +956,8 @@ app.post(
 
             });
 
-        text = result.value;
+        text =
+          result.value;
       }
 
       const knowledgePath =
@@ -949,83 +993,18 @@ app.post(
           "Upload failed"
 
       });
+
     }
+
   }
+
 );
 
 /* ===================================== */
-/* WEBSITE TRAINING */
+/* DASHBOARD */
 /* ===================================== */
 
-app.post(
-  "/train-website",
-  async (req, res) => {
-
-    try {
-
-      const { url } =
-        req.body;
-
-      const response =
-        await axios.get(url);
-
-      const $ =
-        cheerio.load(
-          response.data
-        );
-
-      $("script").remove();
-      $("style").remove();
-
-      const text =
-        $("body")
-          .text()
-          .replace(/\s+/g, " ")
-          .trim();
-
-      const filePath =
-        path.join(
-
-          knowledgeDir,
-
-          `website-${Date.now()}.txt`
-
-        );
-
-      fs.writeFileSync(
-        filePath,
-        text
-      );
-
-      res.json({
-
-        success: true
-
-      });
-
-    } catch (error) {
-
-      console.error(error);
-
-      res.status(500).json({
-
-        error:
-          "Website training failed"
-
-      });
-    }
-  }
-);
-
-/* ===================================== */
-/* DASHBOARD AUTH */
-/* ===================================== */
-
-function checkDashboardAuth(
-  req,
-  res,
-  next
-) {
+app.get("/dashboard", (req, res) => {
 
   const password =
     req.query.password;
@@ -1042,23 +1021,10 @@ function checkDashboardAuth(
       .send("Unauthorized");
   }
 
-  next();
-}
+  const analytics =
+    readAnalytics();
 
-/* ===================================== */
-/* DASHBOARD */
-/* ===================================== */
-
-app.get(
-  "/dashboard",
-  checkDashboardAuth,
-
-  (req, res) => {
-
-    const analytics =
-      readAnalytics();
-
-    res.send(`
+  res.send(`
 
 <html>
 
@@ -1205,67 +1171,27 @@ AI Chatbot Dashboard
 </html>
 
 `);
+
 });
 
 /* ===================================== */
-/* CONFIG */
-/* ===================================== */
-
-app.get(
-  "/config",
-  (req, res) => {
-
-    res.json({
-
-      businessName:
-        config.businessName,
-
-      primaryColor:
-        config.primaryColor,
-
-      secondaryColor:
-        config.secondaryColor,
-
-      welcomeMessage:
-        config.welcomeMessage,
-
-      calendlyUrl:
-        config.calendlyUrl,
-
-      enableCalendly:
-        config.enableCalendly,
-
-      googleReviewLink:
-        config.googleReviewLink,
-
-      enableReviewRequests:
-        config.enableReviewRequests,
-
-      enableNewsletter:
-        config.enableNewsletter,
-
-      newsletterProvider:
-        config.newsletterProvider,
-
-      stripePaymentLink:
-        config.stripePaymentLink,
-
-      enablePayments:
-        config.enablePayments
-
-    });
-});
-
-/* ===================================== */
-/* SERVER */
+/* START */
 /* ===================================== */
 
 const PORT =
   process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(
 
-  console.log(
-    `Server running at http://localhost:${PORT}`
-  );
-});
+  PORT,
+  "0.0.0.0",
+
+  () => {
+
+    console.log(
+      `Server running on port ${PORT}`
+    );
+
+  }
+
+);
